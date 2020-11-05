@@ -89,11 +89,11 @@ public:
         // static tf
         static tf::TransformBroadcaster tfMap2Odom;
         static tf::Transform map_to_odom = tf::Transform(tf::createQuaternionFromRPY(0, 0, 0), tf::Vector3(0, 0, 0));
-        static int count=0;
-        if (count!=0)
-        {
-             tfMap2Odom.sendTransform(tf::StampedTransform(map_to_odom, odomMsg->header.stamp, mapFrame, odometryFrame));
-        }
+        // static int count=0;
+        // if (map_to_odom!=tf::Transform(tf::createQuaternionFromRPY(0, 0, 0), tf::Vector3(0, 0, 0)))
+        // {
+            //  tfMap2Odom.sendTransform(tf::StampedTransform(map_to_odom, odomMsg->header.stamp, mapFrame, odometryFrame));
+        // }
        
 
         std::lock_guard<std::mutex> lock(mtx);
@@ -132,10 +132,10 @@ public:
         if(lidarFrame != baselinkFrame)
             tCur = tCur * lidar2Baselink;
         tf::StampedTransform odom_2_baselink = tf::StampedTransform(tCur, odomMsg->header.stamp, odometryFrame, baselinkFrame);
-        if (count!=0)
-        {
-            tfOdom2BaseLink.sendTransform(odom_2_baselink);
-        }
+        // if (count>1000)
+        // {
+            // tfOdom2BaseLink.sendTransform(odom_2_baselink);
+        // }
         
 
         // publish IMU path
@@ -159,7 +159,7 @@ public:
                 pubImuPath.publish(imuPath);
             }
         }
-        count++;
+        // count++;
     }
 };
 
