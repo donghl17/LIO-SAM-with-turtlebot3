@@ -34,7 +34,7 @@ void SDFMap::initMap(ros::NodeHandle& nh) {
   /* get parameter */
   double x_size, y_size, z_size;
   node_.param("sdf_map/resolution", mp_.resolution_, 0.1);
-  std::cout<<"resolution"<<mp_.resolution_<<std::endl;
+  // std::cout<<"resolution"<<mp_.resolution_<<std::endl;
   node_.param("sdf_map/map_size_x", x_size, -1.0);
   node_.param("sdf_map/map_size_y", y_size, -1.0);
   node_.param("sdf_map/map_size_z", z_size, -1.0);
@@ -102,21 +102,21 @@ void SDFMap::initMap(ros::NodeHandle& nh) {
 
   mp_.map_min_idx_ = Eigen::Vector3i::Zero();
   mp_.map_max_idx_ = mp_.map_voxel_num_ - Eigen::Vector3i::Ones();
- std::cout<<"a"<<std::endl;
+
   // initialize data buffers
-std::cout<<"num0="<<mp_.map_voxel_num_(0) <<std::endl<<"num1="<< mp_.map_voxel_num_(1) <<std::endl<<"num2="<<mp_.map_voxel_num_(2)<<std::endl;
+// std::cout<<"num0="<<mp_.map_voxel_num_(0) <<std::endl<<"num1="<< mp_.map_voxel_num_(1) <<std::endl<<"num2="<<mp_.map_voxel_num_(2)<<std::endl;
   int buffer_size = mp_.map_voxel_num_(0) * mp_.map_voxel_num_(1) * mp_.map_voxel_num_(2);
-std::cout<<"b"<<std::endl;
-std::cout<<"buffer_size:"<<buffer_size<<std::endl<<"mp_.clamp_min_log_"<<mp_.clamp_min_log_<<std::endl<<"mp_.unknown_flag_"<<mp_.unknown_flag_<<std::endl;
-std::cout<<"buffer_size"<<buffer_size<<std::endl;
+
+// std::cout<<"buffer_size:"<<buffer_size<<std::endl<<"mp_.clamp_min_log_"<<mp_.clamp_min_log_<<std::endl<<"mp_.unknown_flag_"<<mp_.unknown_flag_<<std::endl;
+// std::cout<<"buffer_size"<<buffer_size<<std::endl;
   md_.occupancy_buffer_ = vector<double>(buffer_size, mp_.clamp_min_log_ - mp_.unknown_flag_);
   md_.occupancy_buffer_neg = vector<char>(buffer_size, 0);
   md_.occupancy_buffer_inflate_ = vector<char>(buffer_size, 0);
-std::cout<<"c"<<std::endl;
+
   md_.distance_buffer_ = vector<double>(buffer_size, 10000);
   md_.distance_buffer_neg_ = vector<double>(buffer_size, 10000);
   md_.distance_buffer_all_ = vector<double>(buffer_size, 10000);
-std::cout<<"d"<<std::endl;
+
   md_.count_hit_and_miss_ = vector<short>(buffer_size, 0);
   md_.count_hit_ = vector<short>(buffer_size, 0);
   md_.flag_rayend_ = vector<char>(buffer_size, -1);
@@ -181,7 +181,7 @@ std::cout<<"d"<<std::endl;
   md_.update_num_ = 0;
   md_.max_esdf_time_ = 0.0;
   md_.max_fuse_time_ = 0.0;
-std::cout<<"e"<<std::endl;
+
   rand_noise_ = uniform_real_distribution<double>(-0.2, 0.2);
   rand_noise2_ = normal_distribution<double>(0, 0.2);
   random_device rd;
@@ -944,13 +944,13 @@ void SDFMap::cloudCallback(const sensor_msgs::PointCloud2ConstPtr& img) {
 
   max_z = max(max_z, mp_.ground_height_);
 
-std::cout<<min_x<<min_y<<min_z<<max_x<<max_y<<max_z<<std::endl;
+// std::cout<<min_x<<min_y<<min_z<<max_x<<max_y<<max_z<<std::endl;
 
   posToIndex(Eigen::Vector3d(max_x, max_y, max_z), md_.local_bound_max_);
   posToIndex(Eigen::Vector3d(min_x, min_y, min_z), md_.local_bound_min_);
 
-std::cout<<"md_.local_bound_max_: "<<md_.local_bound_max_<<std::endl;
-std::cout<<"md_.local_bound_min_: "<<md_.local_bound_min_<<std::endl;
+// std::cout<<"md_.local_bound_max_: "<<md_.local_bound_max_<<std::endl;
+// std::cout<<"md_.local_bound_min_: "<<md_.local_bound_min_<<std::endl;
 
   boundIndex(md_.local_bound_min_);
   boundIndex(md_.local_bound_max_);
@@ -1050,18 +1050,12 @@ void SDFMap::publishMapInflate(bool all_info) {
     min_cut -= Eigen::Vector3i(lmm, lmm, lmm);
     max_cut += Eigen::Vector3i(lmm, lmm, lmm);
   }
-std::cout<<"min_cut"<<min_cut<<std::endl;
-std::cout<<"max_cut"<<max_cut<<std::endl;
+// std::cout<<"min_cut"<<min_cut<<std::endl;
+// std::cout<<"max_cut"<<max_cut<<std::endl;
   boundIndex(min_cut);
   boundIndex(max_cut);
-//   min_cut(0)=min_cut(0)-10;
-//    min_cut(1)=min_cut(1)-10;
-//     min_cut(2)=min_cut(2)-10;
-//      max_cut(0)=min_cut(0)+10;
-//       max_cut(1)=max_cut(1)+10;
-//        max_cut(2)=max_cut(2)+10;
 
-std::cout<<"min_cut(0)"<<min_cut(0)<<"min_cut(1)"<<min_cut(1)<<"min_cut(2)"<<min_cut(2)<<std::endl;
+// std::cout<<"min_cut(0)"<<min_cut(0)<<"min_cut(1)"<<min_cut(1)<<"min_cut(2)"<<min_cut(2)<<std::endl;
   for (int x = min_cut(0); x <= max_cut(0); ++x)
     for (int y = min_cut(1); y <= max_cut(1); ++y)
       for (int z = min_cut(2); z <= max_cut(2); ++z) {
