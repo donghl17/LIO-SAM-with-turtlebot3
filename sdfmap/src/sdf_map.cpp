@@ -864,6 +864,8 @@ void SDFMap::cloudCallback(const sensor_msgs::PointCloud2ConstPtr& img) {
 
   pcl::PointCloud<pcl::PointXYZ> latest_cloud;
   pcl::fromROSMsg(*img, latest_cloud);
+  sensor_msgs::PointCloud2 a=*img;
+ std::cout<<"pointcloud:"<<a.row_step*a.height*sizeof(uint)<<std::endl;
 
   md_.has_cloud_ = true;
 
@@ -957,7 +959,9 @@ void SDFMap::cloudCallback(const sensor_msgs::PointCloud2ConstPtr& img) {
 
   md_.esdf_need_update_ = true;
 
-publishMap();
+  std::cout<<"occupancy_buffer: "<<md_.occupancy_buffer_inflate_.size()*sizeof(char)<<std::endl;
+  std::cout<<"md_.distancedistance_buffer:"<<md_.distance_buffer_all_.size()*sizeof(double)<<std::endl;
+  publishMap();
   publishMapInflate(false);
 }
 

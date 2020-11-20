@@ -1,7 +1,13 @@
 <launch>
 
     <arg name="project" default="lio_sam"/>
-    
+    <!-- <group ns="robot1">
+    <rosparam file="$(find lio_sam)/config/params.yaml" command="load" />
+    <include file="$(find lio_sam)/launch/include/module_loam.launch" />
+    <include file="$(find lio_sam)/launch/include/module_navsat.launch" />
+  </group> -->
+
+      <!-- <group ns="robot2"> -->
     <!-- Parameters -->
     <rosparam file="$(find lio_sam)/config/params.yaml" command="load" />
 
@@ -18,5 +24,6 @@
     <!-- <include file="$(find lio_sam)/launch/include/module_rviz.launch" /> -->
     <!-- <node pkg="lio_sam" type="hgmm_mapping.py" name="hgmm_building" output="screen">
   </node> -->
+  <!-- </group> -->
 
 </launch>
