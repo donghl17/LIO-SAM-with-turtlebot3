@@ -1,63 +1,63 @@
-
 #include "submap_extraction.h"
+
 void Submap::initMap(ros::NodeHandle nh_){
     mapcnt_=0;
     std::cout<<"init begin"<<std::endl;
     //second param is queue length
     map_sub_=nh_.subscribe<sensor_msgs::PointCloud2>("/lio_sam/deskew/cloud_deskewed", 1000, &Submap::mapCallback,this);///camera/depth/points
     gobalmap_pub_=nh_.advertise<sensor_msgs::PointCloud2>("/globalmap",1000,this);
-
- 
-//   tf::Transform transform_temp;
-//   transform_temp.setOrigin( tf::Vector3(0.0, 0.0, 0.0) );
-//   tf::Quaternion q_temp;
-//   q_temp.setRPY(0, 0, 0);
-//   transform_temp.setRotation(q_temp);
-//   br_.sendTransform(tf::StampedTransform(transform_temp, ros::Time::now(),  "odom","map"));
-
+    std::thread mythread1_(&Submap::Global_Publisher, this);
+    mythread1_.detach();
     std::cout<<"init end"<<std::endl;
 }
  
+
  void Submap::Mapmerge(){
-    // pubSubinfo();
-    pcl::PointCloud<pcl::PointXYZ> cloud_1;
-    pcl::PointCloud<pcl::PointXYZ> global_cloud;
+    pcl::PointCloud<pcl::PointXYZ> cloud_1;  
     pcl::PointCloud<pcl::PointXYZ> temp;
-    for (int i=0; i<Submap_list_.size(); i++)
-    {
-        pcl::fromROSMsg(Submap_list_[i],cloud_1);
-        Eigen::Matrix4f trans;
-        // trans=TransformToMatrix(SubTF_list_[i]);
-        Eigen::Matrix3f rotation_temp;
-        Eigen::Quaternionf quaternion_temp(
-            SubTF_list_[i].getRotation().getW(),SubTF_list_[i].getRotation().getX(),SubTF_list_[i].getRotation().getY(),SubTF_list_[i].getRotation().getZ());
-        rotation_temp=quaternion_temp.toRotationMatrix();
-        trans(0,0)=rotation_temp(0,0);
-        trans(0,1)=rotation_temp(0,1);
-        trans(0,2)=rotation_temp(0,2);
-        trans(1,0)=rotation_temp(1,0);
-        trans(1,1)=rotation_temp(1,1);
-        trans(1,2)=rotation_temp(1,2);
-        trans(2,0)=rotation_temp(2,0);
-        trans(2,1)=rotation_temp(2,1);
-        trans(2,2)=rotation_temp(2,2);
-        trans(0,3)=SubTF_list_[i].getOrigin().getX();
-        trans(1,3)=SubTF_list_[i].getOrigin().getY();
-        trans(2,3)=SubTF_list_[i].getOrigin().getZ();
-        std::cout<<trans<<std::endl;
-        pcl::transformPointCloud(cloud_1, temp, trans);
-        global_cloud = global_cloud + temp;
-    }
-    // pub GlobalMap
-    pcl::toROSMsg(global_cloud,Globalmap_);// to dp: add other info, like tf to this msg
+
+    pcl::fromROSMsg(Submap_list_.back(),cloud_1);
+
+    Eigen::Matrix4f trans_tmp;
+    trans_tmp=TransformToMatrix(SubTF_list_.back());
+        //-------------------self-made transform "fromROSMsg"------------------------------
+        // Eigen::Matrix3f rotation_temp;
+        // Eigen::Quaternionf quaternion_temp(
+        //     SubTF_list_[i].getRotation().getW(),SubTF_list_[i].getRotation().getX(),SubTF_list_[i].getRotation().getY(),SubTF_list_[i].getRotation().getZ());
+        // rotation_temp=quaternion_temp.toRotationMatrix();
+        // trans(0,0)=rotation_temp(0,0);
+        // trans(0,1)=rotation_temp(0,1);
+        // trans(0,2)=rotation_temp(0,2);
+        // trans(1,0)=rotation_temp(1,0);
+        // trans(1,1)=rotation_temp(1,1);
+        // trans(1,2)=rotation_temp(1,2);
+        // trans(2,0)=rotation_temp(2,0);
+        // trans(2,1)=rotation_temp(2,1);
+        // trans(2,2)=rotation_temp(2,2);
+        // trans(0,3)=SubTF_list_[i].getOrigin().getX();
+        // trans(1,3)=SubTF_list_[i].getOrigin().getY();
+        // trans(2,3)=SubTF_list_[i].getOrigin().getZ();
+        //---------------------end------------------------
+        // std::cout<<trans<<std::endl;
+
+    pcl::transformPointCloud(cloud_1, temp, trans_tmp);
+    global_cloud_ = global_cloud_ + temp;
+    pcl::toROSMsg(global_cloud_,Globalmap_);// to do: add other info, like tf to this msg
     Globalmap_.header.frame_id="/map";
-            while (true){
+    // mythread1_.join();
+    std::cout<<"publish Globalmap finish"<<std::endl;
+}
+
+ // pub GlobalMap
+void Submap::Global_Publisher()
+{
+    std::cout<<"global_publisher_Start!"<<std::endl;
+            while (ros::ok()){
+                std::cout<<"pub"<<std::endl;
                 gobalmap_pub_.publish(Globalmap_);
                 // ros::spinOnce();
                 ros::Duration(1).sleep();
             }
-    
-    std::cout<<"publish Globalmap finish"<<std::endl;
 }
 
 Eigen::Matrix4f  Submap::TransformToMatrix(const tf::StampedTransform& transform) 
@@ -88,16 +88,10 @@ void Submap::mapCallback(sensor_msgs::PointCloud2 img){
         //to do: GMMmap_generate(img);
         tf::StampedTransform trans_temp;
         Submap_list_.push_back(img);
-        TFlistener_.lookupTransform( "/map","/camera_depth_optical_frame",ros::Time(0), trans_temp);
-        //output is the transform form "/camera_depth_optical_frame" to "/map"
+        TFlistener_.lookupTransform( "/map","/camera_depth_optical_frame",ros::Time(0), trans_temp);//output is the transform form "/camera_depth_optical_frame" to "/map"
         SubTF_list_.push_back(trans_temp);
-        
-        if (Submap_list_.size()==3)
-        {
-            std::cout<<"begin merging"<<std::endl;
-            Mapmerge();
-            // ros::shutdown();
-        }
+        std::cout<<"begin merging"<<std::endl;
+        Mapmerge();
         mapcnt_=0;
     }
 }
@@ -113,6 +107,6 @@ int main(int argc, char** argv)
   Submap Robot1;
   Robot1.initMap(nh);
   std::cout<<"Robot1 end"<<std::endl;
-    ros::spin();
+  ros::spin();
   return 0;
 }

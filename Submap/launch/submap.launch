@@ -1,0 +1,7 @@
+<launch>
+
+<node pkg="tf" type="static_transform_publisher" name="link1_broadcaster" args="0 0 0 0 0 0 1 map odom 100" />
+<node pkg="Submap" name="Submap_building" type="Submap_building" output="screen" required="true"/>
+
+
+</launch>
