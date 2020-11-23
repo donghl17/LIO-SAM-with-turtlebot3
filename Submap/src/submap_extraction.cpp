@@ -4,7 +4,7 @@ void Submap::initMap(ros::NodeHandle nh_){
     mapcnt_=0;
     std::cout<<"init begin"<<std::endl;
     //second param is queue length
-    map_sub_=nh_.subscribe<sensor_msgs::PointCloud2>("/lio_sam/deskew/cloud_deskewed", 1000, &Submap::mapCallback,this);///camera/depth/points
+    map_sub_=nh_.subscribe<sensor_msgs::PointCloud2>("/points", 1000, &Submap::mapCallback,this);///lio_sam/deskew/cloud_deskewed
     gobalmap_pub_=nh_.advertise<sensor_msgs::PointCloud2>("/globalmap",1000,this);
     std::thread mythread1_(&Submap::Global_Publisher, this);
     mythread1_.detach();
@@ -56,7 +56,7 @@ void Submap::Global_Publisher()
                 std::cout<<"pub"<<std::endl;
                 gobalmap_pub_.publish(Globalmap_);
                 // ros::spinOnce();
-                ros::Duration(1).sleep();
+                 ros::Duration(0.1).sleep();
             }
 }
 
@@ -78,7 +78,7 @@ Eigen::Matrix4f  Submap::TransformToMatrix(const tf::StampedTransform& transform
 
 //Question: Can we make sure that the img&pose are presenting the same frame of map in this way?
 void Submap::mapCallback(sensor_msgs::PointCloud2 img){
-    if (mapcnt_<20){
+    if (mapcnt_<8){
         mapcnt_++;
         std::cout<<mapcnt_<<std::endl;
     }
