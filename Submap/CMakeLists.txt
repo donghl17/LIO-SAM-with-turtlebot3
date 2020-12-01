@@ -144,11 +144,23 @@ link_directories(${PCL_LIBRARY_DIRS})
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 # add_executable(${PROJECT_NAME}_node src/Submap_node.cpp)
+
+add_library( Submap 
+    src/GMM.cpp 
+    src/KMeans.cpp 
+    )
+    target_link_libraries( Submap
+    ${catkin_LIBRARIES} 
+    ${PCL_LIBRARIES}
+    )  
 add_executable(Submap_building src/submap_extraction.cpp)
 target_link_libraries(Submap_building
   ${catkin_LIBRARIES}
   ${PCL_LIBRARIES}
+  Submap
   )
+# add_dependencies(Submap_building ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use

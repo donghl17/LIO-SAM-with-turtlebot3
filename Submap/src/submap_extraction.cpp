@@ -1,13 +1,18 @@
 #include "submap_extraction.h"
 
+
 void Submap::initMap(ros::NodeHandle nh_){
     mapcnt_=0;
     std::cout<<"init begin"<<std::endl;
     //second param is queue length
     map_sub_=nh_.subscribe<sensor_msgs::PointCloud2>("/points", 1000, &Submap::mapCallback,this);///lio_sam/deskew/cloud_deskewed
     gobalmap_pub_=nh_.advertise<sensor_msgs::PointCloud2>("/globalmap",1000,this);
-    std::thread mythread1_(&Submap::Global_Publisher, this);
+    // submap_pub_=nh_.advertise<sensor_msgs::PointCloud2>("/submap_list",1000,this);
+    // subTF_pub_=nh_.advertise<tf::StampedTransform& transform>("/subTF_list",1000,this);
+    std::thread mythread1_(&Submap::Global_Pointcloud_Publisher, this);
     mythread1_.detach();
+    std::thread mythread2_(&Submap::Global_GMM_Publisher, this);
+    mythread2_.detach();
     std::cout<<"init end"<<std::endl;
 }
  
@@ -42,24 +47,67 @@ void Submap::initMap(ros::NodeHandle nh_){
 
     pcl::transformPointCloud(cloud_1, temp, trans_tmp);
     global_cloud_ = global_cloud_ + temp;
-    pcl::toROSMsg(global_cloud_,Globalmap_);// to do: add other info, like tf to this msg
+    pcl::toROSMsg(global_cloud_,Globalmap_);// to do: add other info, like tf, to this msg
     Globalmap_.header.frame_id="/map";
     // mythread1_.join();
     std::cout<<"publish Globalmap finish"<<std::endl;
 }
 
+//Question: transform first or GMM_traiing first and then transform?
+void Submap::GMM_training(){ 
+    pcl::PointCloud<pcl::PointXYZ> cloud_input;  
+    pcl::PointCloud<pcl::PointXYZ> cloud_global;  
+    pcl::fromROSMsg(Submap_list_.back(),cloud_input);
+    std::vector<int> indices;
+    pcl::removeNaNFromPointCloud(cloud_input,cloud_input, indices);
+    
+    //In this version, we first transform the pointcloud and then build the GMM
+    Eigen::Matrix4f trans_tmp;
+    trans_tmp=TransformToMatrix(SubTF_list_.back());
+    pcl::transformPointCloud(cloud_input, cloud_global, trans_tmp);
+
+    const int size = cloud_global.width*cloud_global.height; //Number of samples
+    // std::cout<<"size= "<<size<<"               cloud.size()= "<<cloud_global.size()<<std::endl;
+    const int dim = 3;   //Dimension of feature
+    const int cluster_num = 50; //Cluster number
+    std::cout<<"data input start!"<<std::endl;
+    double *data = new double[size*3];
+    for (int i=0; i < size; i++)
+{
+    // std::cout<<cloud_global.points[i].x<<cloud_global.points[i].y<<cloud_global.points[i].z<<std::endl;
+    data[i*dim+0] = cloud_global.points[i].x;
+    data[i*dim+1]  = cloud_global.points[i].y;
+    data[i*dim+2]  = cloud_global.points[i].z;
+}
+    std::cout<<"data input finish!"<<std::endl;
+    GMM *gmm = new GMM(dim,3); //GMM has 3 SGM
+    gmm->Train(data,size); //Training GMM
+    std::cout<<"gmm finish"<<std::endl;
+	// delete gmm;
+
+
+}
+
+
  // pub GlobalMap
-void Submap::Global_Publisher()
+void Submap::Global_Pointcloud_Publisher()
 {
     std::cout<<"global_publisher_Start!"<<std::endl;
             while (ros::ok()){
-                std::cout<<"pub"<<std::endl;
+                // std::cout<<"pt_pub"<<std::endl;
                 gobalmap_pub_.publish(Globalmap_);
-                // ros::spinOnce();
                  ros::Duration(0.1).sleep();
             }
 }
 
+void Submap::Global_GMM_Publisher(){
+    std::cout<<"GMM_training_start!"<<std::endl;
+            while (ros::ok()){
+                // std::cout<<"GMM_pub"<<std::endl;
+                //publish self-made GMM data-structure or some map info in String
+                 ros::Duration(0.1).sleep();
+            }
+}
 Eigen::Matrix4f  Submap::TransformToMatrix(const tf::StampedTransform& transform) 
 {
     Eigen::Matrix4f transform_matrix;
@@ -91,6 +139,7 @@ void Submap::mapCallback(sensor_msgs::PointCloud2 img){
         TFlistener_.lookupTransform( "/map","/camera_depth_optical_frame",ros::Time(0), trans_temp);//output is the transform form "/camera_depth_optical_frame" to "/map"
         SubTF_list_.push_back(trans_temp);
         std::cout<<"begin merging"<<std::endl;
+        GMM_training();
         Mapmerge();
         mapcnt_=0;
     }
