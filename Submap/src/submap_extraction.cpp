@@ -11,8 +11,10 @@ void Submap::initMap(ros::NodeHandle nh_){
     // subTF_pub_=nh_.advertise<tf::StampedTransform& transform>("/subTF_list",1000,this);
     std::thread mythread1_(&Submap::Global_Pointcloud_Publisher, this);
     mythread1_.detach();
-    std::thread mythread2_(&Submap::Global_GMM_Publisher, this);
+    std::thread mythread2_(&Submap::Global_GMM_Publisher, this);// not finished yet!
     mythread2_.detach();
+    std::thread mythread3_(&Submap::Submap_GMM_building, this);
+    mythread3_.detach();
     std::cout<<"init end"<<std::endl;
 }
  
@@ -54,23 +56,23 @@ void Submap::initMap(ros::NodeHandle nh_){
 }
 
 //Question: transform first or GMM_traiing first and then transform?
-void Submap::GMM_training(){ 
+void Submap::GMM_training(int novel_frame){ 
     pcl::PointCloud<pcl::PointXYZ> cloud_input;  
     pcl::PointCloud<pcl::PointXYZ> cloud_global;  
-    pcl::fromROSMsg(Submap_list_.back(),cloud_input);
+    pcl::fromROSMsg(Submap_list_[novel_frame],cloud_input);
     std::vector<int> indices;
     pcl::removeNaNFromPointCloud(cloud_input,cloud_input, indices);
-    
+
     //In this version, we first transform the pointcloud and then build the GMM
     Eigen::Matrix4f trans_tmp;
-    trans_tmp=TransformToMatrix(SubTF_list_.back());
+    trans_tmp=TransformToMatrix(SubTF_list_[novel_frame]);
     pcl::transformPointCloud(cloud_input, cloud_global, trans_tmp);
 
     const int size = cloud_global.width*cloud_global.height; //Number of samples
     // std::cout<<"size= "<<size<<"               cloud.size()= "<<cloud_global.size()<<std::endl;
     const int dim = 3;   //Dimension of feature
     const int cluster_num = 50; //Cluster number
-    std::cout<<"data input start!"<<std::endl;
+    std::cout<<"---------------------------data input start!"<<std::endl;
     double *data = new double[size*3];
     for (int i=0; i < size; i++)
 {
@@ -79,12 +81,20 @@ void Submap::GMM_training(){
     data[i*dim+1]  = cloud_global.points[i].y;
     data[i*dim+2]  = cloud_global.points[i].z;
 }
-    std::cout<<"data input finish!"<<std::endl;
+    std::cout<<"---------------------------data input finish!"<<std::endl;
+    // try{
     GMM *gmm = new GMM(dim,3); //GMM has 3 SGM
-    gmm->Train(data,size); //Training GMM
-    std::cout<<"gmm finish"<<std::endl;
-	// delete gmm;
+        gmm->Train(data,size); //Training GMM
+            std::cout<<"---------------------------gmm finish"<<std::endl;
+    SubGMM_list_.push_back(gmm);
+    // }    catch(double d) {
+    //     std::cout << "catch(double) " << d <<  std::endl;
+    // }
 
+
+
+    
+    // delete gmm;
 
 }
 
@@ -108,6 +118,20 @@ void Submap::Global_GMM_Publisher(){
                  ros::Duration(0.1).sleep();
             }
 }
+
+void Submap::Submap_GMM_building(){
+        int submap_num=0;
+        std::cout<<"GMM_building_Start!"<<std::endl;
+            while (ros::ok()){
+                if(Submap_list_.size()>submap_num){
+                    GMM_training(submap_num);
+                    submap_num++;
+                    std::cout<<"-------------------------------GMM_NO:"<<submap_num<<std::endl;
+                }
+                ros::Duration(0.1).sleep();
+            }
+}
+
 Eigen::Matrix4f  Submap::TransformToMatrix(const tf::StampedTransform& transform) 
 {
     Eigen::Matrix4f transform_matrix;
@@ -126,7 +150,7 @@ Eigen::Matrix4f  Submap::TransformToMatrix(const tf::StampedTransform& transform
 
 //Question: Can we make sure that the img&pose are presenting the same frame of map in this way?
 void Submap::mapCallback(sensor_msgs::PointCloud2 img){
-    if (mapcnt_<8){
+    if (mapcnt_<5){
         mapcnt_++;
         std::cout<<mapcnt_<<std::endl;
     }
@@ -139,7 +163,7 @@ void Submap::mapCallback(sensor_msgs::PointCloud2 img){
         TFlistener_.lookupTransform( "/map","/camera_depth_optical_frame",ros::Time(0), trans_temp);//output is the transform form "/camera_depth_optical_frame" to "/map"
         SubTF_list_.push_back(trans_temp);
         std::cout<<"begin merging"<<std::endl;
-        GMM_training();
+        // GMM_training();  build GMM_Submap here will create huge latency
         Mapmerge();
         mapcnt_=0;
     }
