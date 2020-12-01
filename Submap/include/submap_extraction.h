@@ -4,6 +4,7 @@
 #include<tf/transform_listener.h>
 #include <ros/duration.h>
 #include<thread>
+#include<mutex>
 
 #include <pcl/point_cloud.h>
 #include <pcl_conversions/pcl_conversions.h>
@@ -47,6 +48,7 @@ private:
     // ros::Publisher subTF_pub_;
     ros::Subscriber map_sub_;
     tf::TransformListener TFlistener_;
+    std::mutex Globalmap_mutex_;
     
 
 };

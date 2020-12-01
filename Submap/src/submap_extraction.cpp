@@ -49,8 +49,10 @@ void Submap::initMap(ros::NodeHandle nh_){
 
     pcl::transformPointCloud(cloud_1, temp, trans_tmp);
     global_cloud_ = global_cloud_ + temp;
+    Globalmap_mutex_.lock();
     pcl::toROSMsg(global_cloud_,Globalmap_);// to do: add other info, like tf, to this msg
     Globalmap_.header.frame_id="/map";
+    Globalmap_mutex_.unlock();
     // mythread1_.join();
     std::cout<<"publish Globalmap finish"<<std::endl;
 }
@@ -62,7 +64,6 @@ void Submap::GMM_training(int novel_frame){
     pcl::fromROSMsg(Submap_list_[novel_frame],cloud_input);
     std::vector<int> indices;
     pcl::removeNaNFromPointCloud(cloud_input,cloud_input, indices);
-
     //In this version, we first transform the pointcloud and then build the GMM
     Eigen::Matrix4f trans_tmp;
     trans_tmp=TransformToMatrix(SubTF_list_[novel_frame]);
@@ -71,8 +72,8 @@ void Submap::GMM_training(int novel_frame){
     const int size = cloud_global.width*cloud_global.height; //Number of samples
     // std::cout<<"size= "<<size<<"               cloud.size()= "<<cloud_global.size()<<std::endl;
     const int dim = 3;   //Dimension of feature
-    const int cluster_num = 50; //Cluster number
-    std::cout<<"---------------------------data input start!"<<std::endl;
+    const int cluster_num = 20; //Cluster number
+    // std::cout<<"---------------------------data input start!"<<std::endl;
     double *data = new double[size*3];
     for (int i=0; i < size; i++)
 {
@@ -81,21 +82,11 @@ void Submap::GMM_training(int novel_frame){
     data[i*dim+1]  = cloud_global.points[i].y;
     data[i*dim+2]  = cloud_global.points[i].z;
 }
-    std::cout<<"---------------------------data input finish!"<<std::endl;
-    // try{
+    // std::cout<<"---------------------------data input finish!"<<std::endl;
     GMM *gmm = new GMM(dim,3); //GMM has 3 SGM
-        gmm->Train(data,size); //Training GMM
-            std::cout<<"---------------------------gmm finish"<<std::endl;
+    gmm->Train(data,size); //Training GMM
     SubGMM_list_.push_back(gmm);
-    // }    catch(double d) {
-    //     std::cout << "catch(double) " << d <<  std::endl;
-    // }
-
-
-
-    
     // delete gmm;
-
 }
 
 
@@ -105,7 +96,9 @@ void Submap::Global_Pointcloud_Publisher()
     std::cout<<"global_publisher_Start!"<<std::endl;
             while (ros::ok()){
                 // std::cout<<"pt_pub"<<std::endl;
+                Globalmap_mutex_.lock();
                 gobalmap_pub_.publish(Globalmap_);
+                Globalmap_mutex_.unlock();
                  ros::Duration(0.1).sleep();
             }
 }
@@ -120,13 +113,13 @@ void Submap::Global_GMM_Publisher(){
 }
 
 void Submap::Submap_GMM_building(){
-        int submap_num=0;
+        static int submap_num=0;
         std::cout<<"GMM_building_Start!"<<std::endl;
             while (ros::ok()){
                 if(Submap_list_.size()>submap_num){
                     GMM_training(submap_num);
                     submap_num++;
-                    std::cout<<"-------------------------------GMM_NO:"<<submap_num<<std::endl;
+                    std::cout<<"GMM_NO:"<<submap_num<<std::endl;
                 }
                 ros::Duration(0.1).sleep();
             }
@@ -150,7 +143,7 @@ Eigen::Matrix4f  Submap::TransformToMatrix(const tf::StampedTransform& transform
 
 //Question: Can we make sure that the img&pose are presenting the same frame of map in this way?
 void Submap::mapCallback(sensor_msgs::PointCloud2 img){
-    if (mapcnt_<5){
+    if (mapcnt_<4){
         mapcnt_++;
         std::cout<<mapcnt_<<std::endl;
     }

@@ -219,8 +219,9 @@ void GMM::Train(const char* sampleFileName)
 
 void GMM::Train(double *data, int N)
 {
+	// std::cout<<"---------------------------gmm init start"<<std::endl;
 	Init(data,N);
-
+// std::cout<<"---------------------------gmm init end"<<std::endl;
 	int size = N;
 
 	// Reestimation
@@ -239,7 +240,7 @@ void GMM::Train(double *data, int N)
 		next_means[i] = new double[m_dimNum];
 		next_vars[i] = new double[m_dimNum];
 	}
-
+// std::cout<<"---------------------------gmm 1"<<std::endl;
 	while (loop)
 	{
 		// Clear buffer for reestimation
@@ -308,7 +309,7 @@ void GMM::Train(double *data, int N)
 		}
 
 		//--- Debug ---
-		//cout << "Iter: " << iterNum << ", Average Log-Probability: " << currL << endl;
+		// std::cout << "Iter: " << iterNum << ", Average Log-Probability: " << currL << std::endl;
 	}
 	delete[] next_priors;
 	for (int i = 0; i < m_mixNum; i++)
