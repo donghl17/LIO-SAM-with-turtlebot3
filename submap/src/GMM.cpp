@@ -11,8 +11,8 @@ History:
 ***************************************************************************/
 #include <math.h>
 #include <iostream>
-#include "Submap/GMM.h"
-#include "Submap/KMeans.h"
+#include "submap/GMM.h"
+#include "submap/KMeans.h"
 using namespace std;
 
 //double M_PI=3.14159;

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(Submap)
+project(submap)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -53,11 +53,10 @@ find_package(PCL 1.7 REQUIRED)
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-#   Message1.msg
-#   Message2.msg
-# )
+add_message_files(
+  FILES
+  gmm.msg
+)
 
 ## Generate services in the 'srv' folder
 # add_service_files(
@@ -74,10 +73,10 @@ find_package(PCL 1.7 REQUIRED)
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   std_msgs
-# )
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+)
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -110,8 +109,8 @@ find_package(PCL 1.7 REQUIRED)
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
  INCLUDE_DIRS include
- LIBRARIES Submap
- CATKIN_DEPENDS roscpp rospy std_msgs
+ LIBRARIES submap
+ CATKIN_DEPENDS roscpp rospy std_msgs message_runtime
  DEPENDS system_lib
 )
 
@@ -145,11 +144,11 @@ link_directories(${PCL_LIBRARY_DIRS})
 ## The recommended prefix ensures that target names across packages don't collide
 # add_executable(${PROJECT_NAME}_node src/Submap_node.cpp)
 
-add_library( Submap 
+add_library( submap
     src/GMM.cpp 
     src/KMeans.cpp 
     )
-    target_link_libraries( Submap
+    target_link_libraries( submap
     ${catkin_LIBRARIES} 
     ${PCL_LIBRARIES}
     )  
@@ -157,8 +156,11 @@ add_executable(Submap_building src/submap_extraction.cpp)
 target_link_libraries(Submap_building
   ${catkin_LIBRARIES}
   ${PCL_LIBRARIES}
-  Submap
+  submap
   )
+  add_executable(basic_shapes src/rviz_gmm.cpp)
+  target_link_libraries(basic_shapes ${catkin_LIBRARIES})
+
 # add_dependencies(Submap_building ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Rename C++ executable without prefix

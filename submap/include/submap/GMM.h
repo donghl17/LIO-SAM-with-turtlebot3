@@ -48,9 +48,10 @@ public:
 
 	friend std::ostream& operator<<(std::ostream& out, GMM& gmm);
 	friend std::istream& operator>>(std::istream& in, GMM& gmm);
+	
 
 private:
-	int m_dimNum;		// ����ά��
+	int m_dimNum;		// ����ά��	
 	int m_mixNum;		// Gaussian��Ŀ
 	double* m_priors;	// GaussianȨ��
 	double** m_means;	// Gaussian��ֵ

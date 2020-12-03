@@ -17,8 +17,8 @@
 #include <Eigen/StdVector>
 #include <tf/transform_broadcaster.h>
 
-#include "Submap/KMeans.h"
-#include "Submap/GMM.h"
+#include "submap/KMeans.h"
+#include "submap/GMM.h"
 
 class Submap {
 public:
@@ -42,8 +42,9 @@ private:
     sensor_msgs::PointCloud2 Globalmap_; // to be changed into GMM formation
     pcl::PointCloud<pcl::PointXYZ> global_cloud_;
     int mapcnt_;// extract a Submap every mapcnt frames, to be improved as feature-based extractor
-    ros::NodeHandle node_;
+    // ros::NodeHandle node_;
     ros::Publisher gobalmap_pub_; 
+    ros::Publisher gmm_pub_; 
     // ros::Publisher submap_pub_; 
     // ros::Publisher subTF_pub_;
     ros::Subscriber map_sub_;

@@ -10,7 +10,7 @@ History:
 #include <math.h>
 #include <time.h>
 #include <iostream>
-#include "Submap/KMeans.h"
+#include "submap/KMeans.h"
 using namespace std;
 
 

@@ -1,5 +1,5 @@
 #include "submap_extraction.h"
-
+#include <submap/gmm.h>
 
 void Submap::initMap(ros::NodeHandle nh_){
     mapcnt_=0;
@@ -7,6 +7,7 @@ void Submap::initMap(ros::NodeHandle nh_){
     //second param is queue length
     map_sub_=nh_.subscribe<sensor_msgs::PointCloud2>("/points", 1000, &Submap::mapCallback,this);///lio_sam/deskew/cloud_deskewed
     gobalmap_pub_=nh_.advertise<sensor_msgs::PointCloud2>("/globalmap",1000,this);
+    gmm_pub_=nh_.advertise<submap::gmm>("/subgmm",1000,this);
     // submap_pub_=nh_.advertise<sensor_msgs::PointCloud2>("/submap_list",1000,this);
     // subTF_pub_=nh_.advertise<tf::StampedTransform& transform>("/subTF_list",1000,this);
     std::thread mythread1_(&Submap::Global_Pointcloud_Publisher, this);
@@ -72,7 +73,7 @@ void Submap::GMM_training(int novel_frame){
     const int size = cloud_global.width*cloud_global.height; //Number of samples
     // std::cout<<"size= "<<size<<"               cloud.size()= "<<cloud_global.size()<<std::endl;
     const int dim = 3;   //Dimension of feature
-    const int cluster_num = 20; //Cluster number
+    const int cluster_num = 2; //Cluster number
     // std::cout<<"---------------------------data input start!"<<std::endl;
     double *data = new double[size*3];
     for (int i=0; i < size; i++)
@@ -83,8 +84,9 @@ void Submap::GMM_training(int novel_frame){
     data[i*dim+2]  = cloud_global.points[i].z;
 }
     // std::cout<<"---------------------------data input finish!"<<std::endl;
-    GMM *gmm = new GMM(dim,3); //GMM has 3 SGM
+    GMM *gmm = new GMM(dim,cluster_num); 
     gmm->Train(data,size); //Training GMM
+    // std::cout<<gmm->Mean(0)[2]<<"------"<<gmm->Mean(1)[2]<<std::endl;
     SubGMM_list_.push_back(gmm);
     // delete gmm;
 }
@@ -104,10 +106,44 @@ void Submap::Global_Pointcloud_Publisher()
 }
 
 void Submap::Global_GMM_Publisher(){
-    std::cout<<"GMM_training_start!"<<std::endl;
+    std::cout<<"GMM_pub_start!"<<std::endl;
+     static int subgmm_num=0;
+     submap::gmm gmm_msg;
             while (ros::ok()){
-                // std::cout<<"GMM_pub"<<std::endl;
+                if(SubGMM_list_.size()>subgmm_num){
+                    std::vector<float> x_tmp;
+                    std::vector<float> y_tmp;
+                    std::vector<float> z_tmp;
+                    std::vector<float> xvar_tmp;
+                    std::vector<float> yvar_tmp;
+                    std::vector<float> zvar_tmp;
+                    std::vector<float> prior_tmp;
+                    for (int i=0; i<SubGMM_list_[subgmm_num]->GetMixNum();i++){
+                        x_tmp.push_back(SubGMM_list_[subgmm_num]->Mean(i)[0]);
+                        y_tmp.push_back(SubGMM_list_[subgmm_num]->Mean(i)[1]);
+                        z_tmp.push_back(SubGMM_list_[subgmm_num]->Mean(i)[2]);
+                        xvar_tmp.push_back(SubGMM_list_[subgmm_num]->Variance(i)[0]);
+                        yvar_tmp.push_back(SubGMM_list_[subgmm_num]->Variance(i)[1]);
+                        zvar_tmp.push_back(SubGMM_list_[subgmm_num]->Variance(i)[2]);
+                        prior_tmp.push_back(SubGMM_list_[subgmm_num]->Prior(i)); 
+                    }
+                    gmm_msg.mix_num=SubGMM_list_[subgmm_num]->GetMixNum();
+                    gmm_msg.prior=prior_tmp;
+                    gmm_msg.x=x_tmp;
+                    gmm_msg.y=y_tmp;
+                    gmm_msg.z=z_tmp;
+                    gmm_msg.x_var=xvar_tmp;
+                    gmm_msg.y_var=yvar_tmp;
+                    gmm_msg.z_var=zvar_tmp;
+                    gmm_pub_.publish(gmm_msg);            
+                subgmm_num++;
+                std::cout<<"GMM_pub"<<std::endl;
                 //publish self-made GMM data-structure or some map info in String
+                }else
+                {
+                    //no update, publish the former msg
+                    gmm_pub_.publish(gmm_msg);
+                }
                  ros::Duration(0.1).sleep();
             }
 }
