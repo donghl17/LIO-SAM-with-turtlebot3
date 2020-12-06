@@ -240,7 +240,7 @@ void GMM::Train(double *data, int N)
 		next_means[i] = new double[m_dimNum];
 		next_vars[i] = new double[m_dimNum];
 	}
-// std::cout<<"---------------------------gmm 1"<<std::endl;
+
 	while (loop)
 	{
 		// Clear buffer for reestimation

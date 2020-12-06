@@ -54,8 +54,8 @@ private:
 	int m_dimNum;		// ����ά��	
 	int m_mixNum;		// Gaussian��Ŀ
 	double* m_priors;	// GaussianȨ��
-	double** m_means;	// Gaussian��ֵ
-	double** m_vars;	// Gaussian����
+	double** m_means;	// Gaussian��ֵ,first is component_id, second is dim_id
+	double** m_vars;	// Gaussian����,first is component_id, second is dim_id
 
 	// A minimum variance is required. Now, it is the overall variance * 0.01.
 	double* m_minVars;
