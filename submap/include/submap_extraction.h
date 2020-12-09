@@ -1,6 +1,7 @@
 #include <iostream>
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
+#include <nav_msgs/Path.h>
 #include<tf/transform_listener.h>
 #include <ros/duration.h>
 #include<thread>
@@ -21,7 +22,8 @@
 
 #include "submap/KMeans.h"
 #include "submap/GMM.h"
-
+#include <submap/gmm.h> //gmm_msg
+#include <submap/gmmlist.h> //gmmlist_msg
 
 class Submap {
 public:
@@ -36,7 +38,9 @@ Eigen::Matrix4f  TransformToMatrix(const tf::StampedTransform& transform) ;
 void Global_Pointcloud_Publisher();
 void Global_GMM_Publisher();
 void Submap_GMM_building();
+void GMM_List_Publisher();
 void G2G_merging(int newframe);
+void generate_path();
 
 //G2G_merge
 double CalDistance(int dim,double* mean1, double*var1, double* mean2, double*var2);
@@ -59,6 +63,8 @@ private:
     int gmm_unmerge_;
     ros::Publisher gobalmap_pub_; 
     ros::Publisher gmm_pub_; 
+    ros::Publisher path_pub_;
+    ros::Publisher gmm_list_pub_;
     // ros::Publisher submap_pub_; 
     // ros::Publisher subTF_pub_;
     ros::Subscriber map_sub_;
@@ -67,6 +73,10 @@ private:
     double dis_threshold_;
     const int dim_=3;
     const int cluster_num_=2;
+    nav_msgs::Path path_; 
+    ros::Time current_time_;
+    submap::gmm gmm_msg_; //current gmm message
+    submap::gmmlist gmm_list_msg_; //overall gmm list message
 
 
 };

@@ -1,5 +1,5 @@
 #include "submap_extraction.h"
-#include <submap/gmm.h> //gmm_msg
+
 
 void Submap::initMap(ros::NodeHandle nh_){
     mapcnt_=0;
@@ -12,15 +12,22 @@ void Submap::initMap(ros::NodeHandle nh_){
     map_sub_=nh_.subscribe<sensor_msgs::PointCloud2>("/points", 1000, &Submap::mapCallback,this);///lio_sam/deskew/cloud_deskewed
     gobalmap_pub_=nh_.advertise<sensor_msgs::PointCloud2>("/globalmap",1000,this);
     gmm_pub_=nh_.advertise<submap::gmm>("/subgmm",1000,this);
+    gmm_list_pub_=nh_.advertise<submap::gmmlist>("/subgmm_list",1000,this);
+    path_pub_= nh_.advertise<nav_msgs::Path>("/trajectory",1, true); 
+    current_time_= ros::Time::now(); 
+    path_.header.stamp=current_time_; 
+	path_.header.frame_id="map"; 
     
     // submap_pub_=nh_.advertise<sensor_msgs::PointCloud2>("/submap_list",1000,this);
     // subTF_pub_=nh_.advertise<tf::StampedTransform& transform>("/subTF_list",1000,this);
     std::thread mythread1_(&Submap::Global_Pointcloud_Publisher, this);
     mythread1_.detach();
-    std::thread mythread2_(&Submap::Global_GMM_Publisher, this);// not finished yet!
+    std::thread mythread2_(&Submap::Global_GMM_Publisher, this);
     mythread2_.detach();
     std::thread mythread3_(&Submap::Submap_GMM_building, this);
     mythread3_.detach();
+    // std::thread mythread4_(&Submap::GMM_List_Publisher, this);
+    // mythread4_.detach();
     std::cout<<"init end"<<std::endl;
 }
  
@@ -66,30 +73,24 @@ void Submap::initMap(ros::NodeHandle nh_){
 
 void Submap::GMM_training(int novel_frame){ 
     pcl::PointCloud<pcl::PointXYZ> cloud_input;  
-    pcl::PointCloud<pcl::PointXYZ> cloud_global;  
     pcl::fromROSMsg(Submap_list_[novel_frame],cloud_input);
-    
-    // Eigen::Matrix4f trans_tmp;
-    // trans_tmp=TransformToMatrix(SubTF_list_[novel_frame]);
-    // pcl::transformPointCloud(cloud_input, cloud_input, trans_tmp);
-
     std::vector<int> indices;
     pcl::removeNaNFromPointCloud(cloud_input,cloud_input, indices);
-    //In this version, we first transform the pointcloud and then build the GMM
-    Eigen::Matrix4f trans_tmp;
-    trans_tmp=TransformToMatrix(SubTF_list_[novel_frame]);
-    pcl::transformPointCloud(cloud_input, cloud_global, trans_tmp);
 
-    const int size = cloud_global.width*cloud_global.height; //Number of samples
-    // std::cout<<"size= "<<size<<"               cloud.size()= "<<cloud_global.size()<<std::endl;
+    //In the current version, no pointcloud transform here, subgmm_msg contain tf info
+    // pcl::PointCloud<pcl::PointXYZ> cloud_global;  
+    // Eigen::Matrix4f trans_tmp;
+    // trans_tmp=TransformToMatrix(SubTF_list_[novel_frame]);
+    // pcl::transformPointCloud(cloud_input, cloud_global, trans_tmp);
+
+    const int size = cloud_input.width*cloud_input.height; //Number of samples
     // std::cout<<"---------------------------data input start!"<<std::endl;
     double *data = new double[size*3];
     for (int i=0; i < size; i++)
 {
-    // std::cout<<cloud_global.points[i].x<<cloud_global.points[i].y<<cloud_global.points[i].z<<std::endl;
-    data[i*dim_+0] = cloud_global.points[i].x;
-    data[i*dim_+1]  = cloud_global.points[i].y;
-    data[i*dim_+2]  = cloud_global.points[i].z;
+    data[i*dim_+0] = cloud_input.points[i].x;
+    data[i*dim_+1]  = cloud_input.points[i].y;
+    data[i*dim_+2]  = cloud_input.points[i].z;
 }
     // std::cout<<"---------------------------data input finish!"<<std::endl;
     GMM *gmm = new GMM(dim_,cluster_num_); 
@@ -98,7 +99,6 @@ void Submap::GMM_training(int novel_frame){
     SubGMM_list_.push_back(gmm);
     // delete gmm;
 }
-
 
  // pub GlobalMap
 void Submap::Global_Pointcloud_Publisher()
@@ -116,10 +116,12 @@ void Submap::Global_Pointcloud_Publisher()
 void Submap::Global_GMM_Publisher(){
     std::cout<<"GMM_pub_start!"<<std::endl;
     //  static int subgmm_num=0;
-     submap::gmm gmm_msg;
-            while (ros::ok()){
+     
+        while (ros::ok()){
                 if(SubGMM_list_.size()>subgmm_num_){
-                    G2G_merging(subgmm_num_);// change GlobalGMM_ inside
+                    //G2G_merging(subgmm_num_);                // change GlobalGMM_ inside this function
+                    
+                    //generate GlobalGMM message
                     std::vector<float> x_tmp;
                     std::vector<float> y_tmp;
                     std::vector<float> z_tmp;
@@ -127,8 +129,6 @@ void Submap::Global_GMM_Publisher(){
                     std::vector<float> yvar_tmp;
                     std::vector<float> zvar_tmp;
                     std::vector<float> prior_tmp;
-
-                    //generate GlobalGMM message
                     for (int i=0; i<GlobalGMM_->GetMixNum();i++){ 
                         x_tmp.push_back(GlobalGMM_->Mean(i)[0]);
                         y_tmp.push_back(GlobalGMM_->Mean(i)[1]);
@@ -138,25 +138,62 @@ void Submap::Global_GMM_Publisher(){
                         zvar_tmp.push_back(GlobalGMM_->Variance(i)[2]);
                         prior_tmp.push_back(GlobalGMM_->Prior(i)); 
                     }
-                    gmm_msg.mix_num=GlobalGMM_->GetMixNum();
-                    gmm_msg.prior=prior_tmp;
-                    gmm_msg.x=x_tmp;
-                    gmm_msg.y=y_tmp;
-                    gmm_msg.z=z_tmp;
-                    gmm_msg.x_var=xvar_tmp;
-                    gmm_msg.y_var=yvar_tmp;
-                    gmm_msg.z_var=zvar_tmp;
-                    gmm_pub_.publish(gmm_msg);            
-                subgmm_num_++;
-                std::cout<<"GMM_global_pub"<<std::endl;
+
+                    gmm_msg_.mix_num=GlobalGMM_->GetMixNum();
+                    gmm_msg_.prior=prior_tmp;
+                    gmm_msg_.x=x_tmp;
+                    gmm_msg_.y=y_tmp;
+                    gmm_msg_.z=z_tmp;
+                    gmm_msg_.x_var=xvar_tmp;
+                    gmm_msg_.y_var=yvar_tmp;
+                    gmm_msg_.z_var=zvar_tmp;
+
+                    //generate pose in GMM message
+                    geometry_msgs::Pose pose_tmp;
+                    geometry_msgs::Point position_tmp;
+                    geometry_msgs::Quaternion orientation_tmp;
+                    position_tmp.x=SubTF_list_[subgmm_num_].getOrigin().getX();
+                    position_tmp.y=SubTF_list_[subgmm_num_].getOrigin().getY();
+                    position_tmp.z=SubTF_list_[subgmm_num_].getOrigin().getZ();
+                    pose_tmp.position=position_tmp;
+                    orientation_tmp.x=SubTF_list_[subgmm_num_].getRotation().getX();
+                    orientation_tmp.y=SubTF_list_[subgmm_num_].getRotation().getY();
+                    orientation_tmp.z=SubTF_list_[subgmm_num_].getRotation().getZ();
+                    orientation_tmp.w=SubTF_list_[subgmm_num_].getRotation().getW();
+                    pose_tmp.orientation=orientation_tmp;
+                    gmm_msg_.pose=pose_tmp;
+                    current_time_= ros::Time::now(); 
+                    gmm_msg_.header.stamp=current_time_;
+                    gmm_msg_.header.frame_id="camera_depth_optical_frame";
+
+                    gmm_list_msg_.data.push_back(gmm_msg_);
+                    gmm_pub_.publish(gmm_msg_); 
+                    gmm_list_pub_.publish(gmm_list_msg_);           
+                    subgmm_num_++;
+                    std::cout<<"GMM_global_pub"<<std::endl;
                 }else
                 {
                     //no update, publish the former msg
-                    gmm_pub_.publish(gmm_msg); //for visualization
+                    gmm_pub_.publish(gmm_msg_); //for visualization
+                    gmm_list_pub_.publish(gmm_list_msg_);
                 }
                  ros::Duration(0.1).sleep();
             }
 }
+
+// void Submap::GMM_List_Publiser(){
+// while (ros::ok()){
+//                 if(SubGMM_list_.size()>subgmm_num_){
+ 
+//                 }else
+//                 {
+//                     //no update, publish the former msg
+//                     gmm_pub_.publish(gmm_msg); //for visualization
+//                 }
+//                  ros::Duration(0.1).sleep();
+//             }
+
+// }
 
 void Submap::Submap_GMM_building(){
         // static int submap_num=0;
@@ -266,22 +303,46 @@ Eigen::Matrix4f  Submap::TransformToMatrix(const tf::StampedTransform& transform
 //Question: Can we make sure that the img&pose are presenting the same frame of map in this way?
 void Submap::mapCallback(sensor_msgs::PointCloud2 img){
     if (mapcnt_<4){
+        generate_path();
         mapcnt_++;
         std::cout<<mapcnt_<<std::endl;
     }
     else
     {
+        generate_path();
         std::cout<<"receive submap"<<std::endl;
-        //to do: GMMmap_generate(img);
         tf::StampedTransform trans_temp;
         Submap_list_.push_back(img);
         TFlistener_.lookupTransform( "/map","/camera_depth_optical_frame",ros::Time(0), trans_temp);//output is the transform form "/camera_depth_optical_frame" to "/map"
         SubTF_list_.push_back(trans_temp);
         std::cout<<"begin merging"<<std::endl;
-        // GMM_training();  build GMM_Submap here will create huge latency
+        // build GMM_Submap here will create huge latency, so we create another thread to do it
         Mapmerge();
         mapcnt_=0;
     }
+}
+
+
+void Submap::generate_path(){
+        current_time_= ros::Time::now(); 
+        path_.header.stamp=current_time_; 
+        tf::StampedTransform trans_temp;
+        TFlistener_.lookupTransform( "/map","/base_link",ros::Time(0), trans_temp);//output is the transform form "/base_link" to "/map"
+		geometry_msgs::PoseStamped this_pose_stamped; 
+		this_pose_stamped.pose.position.x = trans_temp.getOrigin().getX(); 
+		this_pose_stamped.pose.position.y = trans_temp.getOrigin().getY(); 
+        this_pose_stamped.pose.position.z = trans_temp.getOrigin().getZ(); 
+		this_pose_stamped.pose.orientation.x = trans_temp.getRotation().getX(); 
+		this_pose_stamped.pose.orientation.y = trans_temp.getRotation().getY(); 
+		this_pose_stamped.pose.orientation.z = trans_temp.getRotation().getZ(); 
+		this_pose_stamped.pose.orientation.w = trans_temp.getRotation().getW(); 
+
+		this_pose_stamped.header.stamp=current_time_; 
+		this_pose_stamped.header.frame_id="map"; 
+		path_.poses.push_back(this_pose_stamped); 
+
+		path_pub_.publish(path_); 
+
 }
 
 // Wasserstein Distance
