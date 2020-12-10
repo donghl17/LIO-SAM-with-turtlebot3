@@ -22,12 +22,12 @@ void Submap::initMap(ros::NodeHandle nh_){
     // subTF_pub_=nh_.advertise<tf::StampedTransform& transform>("/subTF_list",1000,this);
     std::thread mythread1_(&Submap::Global_Pointcloud_Publisher, this);
     mythread1_.detach();
-    std::thread mythread2_(&Submap::Global_GMM_Publisher, this);
+    std::thread mythread2_(&Submap::Global_GMM_Publisher, this);// pub gmm submap & gmm list
     mythread2_.detach();
     std::thread mythread3_(&Submap::Submap_GMM_building, this);
     mythread3_.detach();
-    // std::thread mythread4_(&Submap::GMM_List_Publisher, this);
-    // mythread4_.detach();
+    std::thread mythread4_(&Submap::Loop_Detection, this);
+    mythread4_.detach();
     std::cout<<"init end"<<std::endl;
 }
  
@@ -181,19 +181,23 @@ void Submap::Global_GMM_Publisher(){
             }
 }
 
-// void Submap::GMM_List_Publiser(){
-// while (ros::ok()){
-//                 if(SubGMM_list_.size()>subgmm_num_){
- 
-//                 }else
-//                 {
-//                     //no update, publish the former msg
-//                     gmm_pub_.publish(gmm_msg); //for visualization
-//                 }
-//                  ros::Duration(0.1).sleep();
-//             }
+void Submap::Loop_Detection(){
+    std::cout<<"Loop_Detection_Start!"<<std::endl;
+    while (ros::ok()){
+        if(loop_detection()){
+            back_end_optimazation();
+        }
+        ros::Duration(0.1).sleep();
+    }
+}
 
-// }
+bool Submap::loop_detection(){
+    
+}
+
+void Submap::back_end_optimazation(){
+
+}
 
 void Submap::Submap_GMM_building(){
         // static int submap_num=0;
@@ -315,6 +319,23 @@ void Submap::mapCallback(sensor_msgs::PointCloud2 img){
         Submap_list_.push_back(img);
         TFlistener_.lookupTransform( "/map","/camera_depth_optical_frame",ros::Time(0), trans_temp);//output is the transform form "/camera_depth_optical_frame" to "/map"
         SubTF_list_.push_back(trans_temp);
+        if (SubTF_list_.size()>1){
+            //generate relative transition
+            geometry_msgs::Pose pose_tmp;
+            geometry_msgs::Point position_tmp;
+            geometry_msgs::Quaternion orientation_tmp;
+            position_tmp.x=SubTF_list_[SubTF_list_.size()].getOrigin().getX()-SubTF_list_[SubTF_list_.size()-1].getOrigin().getX();
+            position_tmp.y=SubTF_list_[SubTF_list_.size()].getOrigin().getY()-SubTF_list_[SubTF_list_.size()-1].getOrigin().getY();
+            position_tmp.z=SubTF_list_[SubTF_list_.size()].getOrigin().getZ()-SubTF_list_[SubTF_list_.size()-1].getOrigin().getZ();
+            pose_tmp.position=position_tmp;
+            orientation_tmp.x=SubTF_list_[SubTF_list_.size()].getRotation().getX()-SubTF_list_[SubTF_list_.size()-1].getRotation().getX();
+            orientation_tmp.y=SubTF_list_[SubTF_list_.size()].getRotation().getY()-SubTF_list_[SubTF_list_.size()-1].getRotation().getY();
+            orientation_tmp.z=SubTF_list_[SubTF_list_.size()].getRotation().getZ()-SubTF_list_[SubTF_list_.size()-1].getRotation().getZ();
+            orientation_tmp.w=SubTF_list_[SubTF_list_.size()].getRotation().getW()-SubTF_list_[SubTF_list_.size()-1].getRotation().getW();
+            pose_tmp.orientation=orientation_tmp;   
+            Trans_origin_.push_back(pose_tmp);
+            std::cout<< pose_tmp<<std::endl;
+        }
         std::cout<<"begin merging"<<std::endl;
         // build GMM_Submap here will create huge latency, so we create another thread to do it
         Mapmerge();

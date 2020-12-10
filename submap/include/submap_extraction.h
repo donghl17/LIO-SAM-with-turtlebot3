@@ -38,9 +38,11 @@ Eigen::Matrix4f  TransformToMatrix(const tf::StampedTransform& transform) ;
 void Global_Pointcloud_Publisher();
 void Global_GMM_Publisher();
 void Submap_GMM_building();
-void GMM_List_Publisher();
+void Loop_Detection();
 void G2G_merging(int newframe);
 void generate_path();
+bool loop_detection(); //no subcribe, only single agent loop detection
+void back_end_optimazation();
 
 //G2G_merge
 double CalDistance(int dim,double* mean1, double*var1, double* mean2, double*var2);
@@ -52,7 +54,8 @@ double* Madd(int dim, double* var1, double* var2, double* var3);
 private:
     // ros::NodeHandle nh_;
     std::vector<sensor_msgs::PointCloud2> Submap_list_;
-    std::vector<tf::StampedTransform> SubTF_list_;
+    std::vector<tf::StampedTransform> SubTF_list_; //pose_list will be optimized after backend optimazation
+    std::vector<geometry_msgs::Pose> Trans_origin_;
     std::vector<GMM*> SubGMM_list_; // all the gmm submap are in the global TF, not local
     sensor_msgs::PointCloud2 Globalmap_; 
     GMM *GlobalGMM_;
