@@ -14,6 +14,7 @@
 #include <pcl/common/transforms.h>	
 #include <pcl/point_types.h>
 #include <pcl/filters/filter.h>
+#include <pcl/filters/voxel_grid.h>
 
 #include<Eigen/Dense>
 #include <Eigen/Eigen>
@@ -75,7 +76,7 @@ private:
     std::mutex Globalmap_mutex_;
     double dis_threshold_;
     const int dim_=3;
-    const int cluster_num_=2;
+    const int cluster_num_=100;
     nav_msgs::Path path_; 
     ros::Time current_time_;
     submap::gmm gmm_msg_; //current gmm message

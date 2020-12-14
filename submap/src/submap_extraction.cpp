@@ -74,8 +74,10 @@ void Submap::initMap(ros::NodeHandle nh_){
 void Submap::GMM_training(int novel_frame){ 
     pcl::PointCloud<pcl::PointXYZ> cloud_input;  
     pcl::fromROSMsg(Submap_list_[novel_frame],cloud_input);
-    std::vector<int> indices;
-    pcl::removeNaNFromPointCloud(cloud_input,cloud_input, indices);
+    
+    //already move "removeNaN" to mapCallback()
+    // std::vector<int> indices;
+    // pcl::removeNaNFromPointCloud(cloud_input,cloud_input, indices);
 
     //In the current version, no pointcloud transform here, subgmm_msg contain tf info
     // pcl::PointCloud<pcl::PointXYZ> cloud_global;  
@@ -129,17 +131,17 @@ void Submap::Global_GMM_Publisher(){
                     std::vector<float> yvar_tmp;
                     std::vector<float> zvar_tmp;
                     std::vector<float> prior_tmp;
-                    for (int i=0; i<GlobalGMM_->GetMixNum();i++){ 
-                        x_tmp.push_back(GlobalGMM_->Mean(i)[0]);
-                        y_tmp.push_back(GlobalGMM_->Mean(i)[1]);
-                        z_tmp.push_back(GlobalGMM_->Mean(i)[2]);
-                        xvar_tmp.push_back(GlobalGMM_->Variance(i)[0]);
-                        yvar_tmp.push_back(GlobalGMM_->Variance(i)[1]);
-                        zvar_tmp.push_back(GlobalGMM_->Variance(i)[2]);
-                        prior_tmp.push_back(GlobalGMM_->Prior(i)); 
+                    for (int i=0; i<SubGMM_list_[subgmm_num_]->GetMixNum();i++){ 
+                        x_tmp.push_back(SubGMM_list_[subgmm_num_]->Mean(i)[0]);
+                        y_tmp.push_back(SubGMM_list_[subgmm_num_]->Mean(i)[1]);
+                        z_tmp.push_back(SubGMM_list_[subgmm_num_]->Mean(i)[2]);
+                        xvar_tmp.push_back(SubGMM_list_[subgmm_num_]->Variance(i)[0]);
+                        yvar_tmp.push_back(SubGMM_list_[subgmm_num_]->Variance(i)[1]);
+                        zvar_tmp.push_back(SubGMM_list_[subgmm_num_]->Variance(i)[2]);
+                        prior_tmp.push_back(SubGMM_list_[subgmm_num_]->Prior(i)); 
                     }
 
-                    gmm_msg_.mix_num=GlobalGMM_->GetMixNum();
+                    gmm_msg_.mix_num=SubGMM_list_[subgmm_num_]->GetMixNum();
                     gmm_msg_.prior=prior_tmp;
                     gmm_msg_.x=x_tmp;
                     gmm_msg_.y=y_tmp;
@@ -315,8 +317,19 @@ void Submap::mapCallback(sensor_msgs::PointCloud2 img){
     {
         generate_path();
         std::cout<<"receive submap"<<std::endl;
+        pcl::PointCloud<pcl::PointXYZ> cloud_input;  
+        pcl::VoxelGrid<pcl::PointXYZ> sor;
+        pcl::fromROSMsg(img,cloud_input);
+        std::vector<int> indices;
+        pcl::removeNaNFromPointCloud(cloud_input,cloud_input, indices);
+        sor.setInputCloud(cloud_input.makeShared());
+        sor.setLeafSize(0.1f, 0.1f, 0.1f);
+        sor.filter(cloud_input);
+        sensor_msgs::PointCloud2 img_tmp;
+        pcl::toROSMsg(cloud_input,img_tmp);// to do: add other info, like tf, to this msg
+        img_tmp.header=img.header;
         tf::StampedTransform trans_temp;
-        Submap_list_.push_back(img);
+        Submap_list_.push_back(img_tmp);
         TFlistener_.lookupTransform( "/map","/camera_depth_optical_frame",ros::Time(0), trans_temp);//output is the transform form "/camera_depth_optical_frame" to "/map"
         SubTF_list_.push_back(trans_temp);
         if (SubTF_list_.size()>1){
