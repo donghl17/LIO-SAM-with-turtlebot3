@@ -361,6 +361,7 @@ void Submap::generate_path(){
         current_time_= ros::Time::now(); 
         path_.header.stamp=current_time_; 
         tf::StampedTransform trans_temp;
+        TFlistener_.waitForTransform("/map", "/base_link", ros::Time(0), ros::Duration(4.0));
         TFlistener_.lookupTransform( "/map","/base_link",ros::Time(0), trans_temp);//output is the transform form "/base_link" to "/map"
 		geometry_msgs::PoseStamped this_pose_stamped; 
 		this_pose_stamped.pose.position.x = trans_temp.getOrigin().getX(); 
